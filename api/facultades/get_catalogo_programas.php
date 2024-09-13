@@ -9,22 +9,19 @@ use Dotenv\Dotenv;
 try {
     $headers = apache_request_headers();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
-    $id_curso = isset($_GET['id']) ? $_GET['id'] : 0;
-
-    if($id_curso === 0) {
-        throw new Exception('Curso invalido');
-    }
 
     if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
-        throw new Exception('Authentication token is missing');
+        throw new Exception('Authentication token is missing or invalid');
     }
 
     // Extract the JWT from the Authorization header
     $jwt = str_replace('Bearer ', '', $authHeader);
 
-    $dotenv = Dotenv::createImmutable(__DIR__.'/../../');
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
+
+    // Decode the JWT
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
@@ -38,42 +35,32 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT cursos.*, roles_cursos.id_rol FROM cursos
-            INNER JOIN roles_cursos ON roles_cursos.id_curso = cursos.id
-            INNER JOIN catalogo_roles ON catalogo_roles.id = roles_cursos.id_rol
-            INNER JOIN maestros ON maestros.id = roles_cursos.id_maestro
-            WHERE maestros.id = ? AND cursos.id = ?";
+    $sql = "SELECT * FROM catalogo_programas";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('ii', $decoded_jwt->sub, $id_curso);
     $stmt->execute();
     $result = $stmt->get_result();
+
     if ($result === false) {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-
-    if ($result->num_rows === 0) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'No se encontro el curso',
-            'curso' => null,
-        ]);
-        exit();
+    $catalogo_programas = [];
+    while ($row = $result->fetch_assoc()) {
+        $catalogo_programas[] = $row;
     }
-    $curso = $result->fetch_assoc();
-
 
     $stmt->close();
     $connection->close();
+
     echo json_encode([
         'success' => true,
-        'message' => 'Cursos obtenidos',
-        'curso' => $curso,
+        'message' => 'Catalogo Programas obtenido',
+        'catalogo_programas' => $catalogo_programas,
     ]);
 
 } catch (Exception $e) {
@@ -81,7 +68,7 @@ try {
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'curso' => null,
+        'catalogo_programas' => [],
     ]);
     error_log($e->getMessage());
 }

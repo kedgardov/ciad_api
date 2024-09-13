@@ -8,25 +8,31 @@ use Dotenv\Dotenv;
 
 try {
     $headers = apache_request_headers();
-    $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
-    $id_curso = isset($_GET['id']) ? $_GET['id'] : 0;
+    $authHeader = $headers['Authorization'] ?? null;
 
-    if($id_curso === 0) {
-        throw new Exception('Curso invalido');
+    // Validate id_maestro as an integer using filter_var
+    $id_maestro = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1]
+    ]);
+
+    if ($id_maestro === false) {
+        throw new Exception('Maestro inválido. El ID debe ser un número entero positivo.');
     }
 
     if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
-        throw new Exception('Authentication token is missing');
+        throw new Exception('Authentication token is missing.');
     }
 
     // Extract the JWT from the Authorization header
     $jwt = str_replace('Bearer ', '', $authHeader);
 
-    $dotenv = Dotenv::createImmutable(__DIR__.'/../../');
+    // Load environment variables
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
+    // Database connection setup
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
     $PASSWORD = $_ENV['MY_PASSWORD'];
@@ -38,50 +44,54 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT cursos.*, roles_cursos.id_rol FROM cursos
-            INNER JOIN roles_cursos ON roles_cursos.id_curso = cursos.id
-            INNER JOIN catalogo_roles ON catalogo_roles.id = roles_cursos.id_rol
-            INNER JOIN maestros ON maestros.id = roles_cursos.id_maestro
-            WHERE maestros.id = ? AND cursos.id = ?";
-
+    // SQL statement
+    $sql = "SELECT id, grado, nombre, apellido, email, institucion_trabajo FROM maestros WHERE id = ?";
     $stmt = $connection->prepare($sql);
+
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('ii', $decoded_jwt->sub, $id_curso);
+    $stmt->bind_param('i', $id_maestro);
     $stmt->execute();
     $result = $stmt->get_result();
+
     if ($result === false) {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-
+    // Check if the result is empty
     if ($result->num_rows === 0) {
         echo json_encode([
             'success' => false,
-            'message' => 'No se encontro el curso',
-            'curso' => null,
+            'message' => 'No se encontró el maestro.',
+            'maestro' => null,
         ]);
         exit();
     }
-    $curso = $result->fetch_assoc();
 
+    // Fetch the maestro data
+    $maestro = $result->fetch_assoc();
 
     $stmt->close();
     $connection->close();
+
+    $maestro['label'] = $maestro['grado'] . ' ' . $maestro['nombre'] . ' ' . $maestro['apellido'];
+
+    // Successful response
     echo json_encode([
         'success' => true,
-        'message' => 'Cursos obtenidos',
-        'curso' => $curso,
+        'message' => 'Maestro obtenido.',
+        'maestro' => $maestro,
     ]);
 
 } catch (Exception $e) {
-    //http_response_code(500);
+    // Log error and return response
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'curso' => null,
+        'maestro' => null,
     ]);
     error_log($e->getMessage());
 }

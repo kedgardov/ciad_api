@@ -7,30 +7,28 @@ use Firebase\JWT\Key;
 use Dotenv\Dotenv;
 
 try {
+    // Fetch headers and extract the Authorization token
     $headers = apache_request_headers();
-    $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
-    $id_curso = isset($_GET['id']) ? $_GET['id'] : 0;
-
-    if($id_curso === 0) {
-        throw new Exception('Curso invalido');
-    }
+    $authHeader = $headers['Authorization'] ?? null;
 
     if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
-        throw new Exception('Authentication token is missing');
+        throw new Exception('Authentication token is missing.');
     }
 
-    // Extract the JWT from the Authorization header
+    // Extract and decode the JWT
     $jwt = str_replace('Bearer ', '', $authHeader);
 
-    $dotenv = Dotenv::createImmutable(__DIR__.'/../../');
+    // Load environment variables
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
+    // Database connection setup
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
     $PASSWORD = $_ENV['MY_PASSWORD'];
-    $DATABASE_NAME = $_ENV['MY_DB_NAME'];
+    $DATABASE_NAME = $_ENV['MY_DB_TESIS_REPO'];
 
     $connection = new mysqli($SERVER_NAME, $USERNAME, $PASSWORD, $DATABASE_NAME);
 
@@ -38,51 +36,45 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT cursos.*, roles_cursos.id_rol FROM cursos
-            INNER JOIN roles_cursos ON roles_cursos.id_curso = cursos.id
-            INNER JOIN catalogo_roles ON catalogo_roles.id = roles_cursos.id_rol
-            INNER JOIN maestros ON maestros.id = roles_cursos.id_maestro
-            WHERE maestros.id = ? AND cursos.id = ?";
-
+    // SQL query to retrieve catalogo_roles_tesis
+    $sql = "SELECT * FROM catalogo_roles_tesis";
     $stmt = $connection->prepare($sql);
+
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('ii', $decoded_jwt->sub, $id_curso);
     $stmt->execute();
     $result = $stmt->get_result();
+
     if ($result === false) {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-
-    if ($result->num_rows === 0) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'No se encontro el curso',
-            'curso' => null,
-        ]);
-        exit();
+    // Fetching the results into an array
+    $catalogo_roles_tesis = [];
+    while ($row = $result->fetch_assoc()) {
+        $catalogo_roles_tesis[] = $row;
     }
-    $curso = $result->fetch_assoc();
-
 
     $stmt->close();
     $connection->close();
+
+    // Successful response
     echo json_encode([
         'success' => true,
-        'message' => 'Cursos obtenidos',
-        'curso' => $curso,
+        'message' => 'Catálogo de roles de tesis obtenido.',
+        'catalogo_roles_tesis' => $catalogo_roles_tesis,
     ]);
 
 } catch (Exception $e) {
-    //http_response_code(500);
+    // Sending the error response
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'curso' => null,
+        'catalogo_roles_tesis' => [],
     ]);
-    error_log($e->getMessage());
+    error_log($e->getMessage());  // Log the error message
 }
 ?>

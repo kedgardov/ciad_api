@@ -1,10 +1,5 @@
 <?php
 
-// if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-//     http_response_code(200);
-//     exit();
-// }
-
 require '../../vendor/autoload.php';
 
 use Firebase\JWT\JWT;
@@ -16,12 +11,16 @@ class Curso {
     public $clave;
     public $nombre;
     public $nombre_ingles;
-    public $horas_teoricas;
-    public $horas_practicas;
-    public $horas_independientes;
+    public $horas_teoricas_semana;
+    public $horas_practicas_semana;
     public $horas_semana;
+    public $horas_teoricas_semestre;
+    public $horas_practicas_semestre;
     public $horas_semestre;
+    public $creditos;
     public $vinculo_objetivos_posgrado;
+    public $id_modalidad;
+    public $id_tipo;
 
     public function __construct($input) {
         if (!isset($input['id']) || !isset($input['clave']) || !isset($input['nombre'])) {
@@ -32,53 +31,33 @@ class Curso {
         $this->clave = filter_var($input['clave'], FILTER_SANITIZE_STRING);
         $this->nombre = filter_var($input['nombre'], FILTER_SANITIZE_STRING);
         $this->nombre_ingles = isset($input['nombre_ingles']) ? filter_var($input['nombre_ingles'], FILTER_SANITIZE_STRING) : null;
-        $this->horas_teoricas = isset($input['horas_teoricas']) ? filter_var($input['horas_teoricas'], FILTER_VALIDATE_INT) : null;
-        $this->horas_practicas = isset($input['horas_practicas']) ? filter_var($input['horas_practicas'], FILTER_VALIDATE_INT) : null;
-        $this->horas_independientes = isset($input['horas_independientes']) ? filter_var($input['horas_independientes'], FILTER_VALIDATE_INT) : null;
+        $this->horas_teoricas_semana = isset($input['horas_teoricas_semana']) ? filter_var($input['horas_teoricas_semana'], FILTER_VALIDATE_INT) : null;
+        $this->horas_practicas_semana = isset($input['horas_practicas_semana']) ? filter_var($input['horas_practicas_semana'], FILTER_VALIDATE_INT) : null;
         $this->horas_semana = isset($input['horas_semana']) ? filter_var($input['horas_semana'], FILTER_VALIDATE_INT) : null;
+        $this->horas_teoricas_semestre = isset($input['horas_teoricas_semestre']) ? filter_var($input['horas_teoricas_semestre'], FILTER_VALIDATE_INT) : null;
+        $this->horas_practicas_semestre = isset($input['horas_practicas_semestre']) ? filter_var($input['horas_practicas_semestre'], FILTER_VALIDATE_INT) : null;
         $this->horas_semestre = isset($input['horas_semestre']) ? filter_var($input['horas_semestre'], FILTER_VALIDATE_INT) : null;
+        $this->creditos = isset($input['creditos']) ? filter_var($input['creditos'], FILTER_VALIDATE_INT) : null;
         $this->vinculo_objetivos_posgrado = isset($input['vinculo_objetivos_posgrado']) ? filter_var($input['vinculo_objetivos_posgrado'], FILTER_SANITIZE_STRING) : null;
+        $this->id_modalidad = isset($input['id_modalidad']) ? filter_var($input['id_modalidad'], FILTER_VALIDATE_INT) : null;
+        $this->id_tipo = isset($input['id_tipo']) ? filter_var($input['id_tipo'], FILTER_VALIDATE_INT) : null;
     }
 
-    public function getId() {
-        return $this->id;
-    }
-
-    public function getClave() {
-        return $this->clave;
-    }
-
-    public function getNombre() {
-        return $this->nombre;
-    }
-
-    public function getNombreIngles() {
-        return $this->nombre_ingles;
-    }
-
-    public function getHorasTeoricas() {
-        return $this->horas_teoricas;
-    }
-
-    public function getHorasPracticas() {
-        return $this->horas_practicas;
-    }
-
-    public function getHorasIndependientes() {
-        return $this->horas_independientes;
-    }
-
-    public function getHorasSemana() {
-        return $this->horas_semana;
-    }
-
-    public function getHorasSemestre() {
-        return $this->horas_semestre;
-    }
-
-    public function getVinculoObjetivosPosgrado() {
-        return $this->vinculo_objetivos_posgrado;
-    }
+    // Getter methods...
+    public function getId() { return $this->id; }
+    public function getClave() { return $this->clave; }
+    public function getNombre() { return $this->nombre; }
+    public function getNombreIngles() { return $this->nombre_ingles; }
+    public function getHorasTeoricasSemana() { return $this->horas_teoricas_semana; }
+    public function getHorasPracticasSemana() { return $this->horas_practicas_semana; }
+    public function getHorasSemana() { return $this->horas_semana; }
+    public function getHorasTeoricasSemestre() { return $this->horas_teoricas_semestre; }
+    public function getHorasPracticasSemestre() { return $this->horas_practicas_semestre; }
+    public function getHorasSemestre() { return $this->horas_semestre; }
+    public function getCreditos() { return $this->creditos; }
+    public function getVinculoObjetivosPosgrado() { return $this->vinculo_objetivos_posgrado; }
+    public function getIdModalidad() { return $this->id_modalidad; }
+    public function getIdTipo() { return $this->id_tipo; }
 }
 
 try {
@@ -96,7 +75,7 @@ try {
     $curso = new Curso($input['curso']);
 
     $jwt = str_replace('Bearer ', '', $authHeader);
-    $dotenv = Dotenv::createImmutable(__DIR__.'/../../');
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
@@ -114,11 +93,16 @@ try {
 
     $sql = "UPDATE cursos SET
             nombre_ingles = ?,
-            horas_teoricas = ?,
-            horas_practicas = ?,
-            horas_independientes = ?,
+            horas_teoricas_semana = ?,
+            horas_practicas_semana = ?,
             horas_semana = ?,
-            horas_semestre = ?
+            horas_teoricas_semestre = ?,
+            horas_practicas_semestre = ?,
+            horas_semestre = ?,
+            creditos = ?,
+            vinculo_objetivos_posgrado = ?,
+            id_modalidad = ?,
+            id_tipo = ?
             WHERE id = ?";
 
     $stmt = $connection->prepare($sql);
@@ -127,13 +111,18 @@ try {
     }
 
     $stmt->bind_param(
-        'siiiiii',
+        'siiiiiiiiiii',
         $curso->getNombreIngles(),
-        $curso->getHorasTeoricas(),
-        $curso->getHorasPracticas(),
-        $curso->getHorasIndependientes(),
+        $curso->getHorasTeoricasSemana(),
+        $curso->getHorasPracticasSemana(),
         $curso->getHorasSemana(),
+        $curso->getHorasTeoricasSemestre(),
+        $curso->getHorasPracticasSemestre(),
         $curso->getHorasSemestre(),
+        $curso->getCreditos(),
+        $curso->getVinculoObjetivosPosgrado(),
+        $curso->getIdModalidad(),
+        $curso->getIdTipo(),
         $curso->getId()
     );
 
@@ -141,7 +130,6 @@ try {
 
     $stmt->close();
     $connection->close();
-    sleep(2);
 
     echo json_encode([
         'success' => true,
@@ -149,7 +137,7 @@ try {
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
+    //http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),

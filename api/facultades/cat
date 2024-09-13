@@ -1,0 +1,11 @@
+add_lgac.php
+cat
+get_all_opciones_terminales.php
+get_catalogo_lgacs.php
+get_catalogo_niveles_curriculares.php
+get_catalogo_opciones_terminales.php
+get_catalogo_programas.php
+get_lgacs.php
+get_opciones_terminales.php
+remove_lgac.php
+update_lgac.php

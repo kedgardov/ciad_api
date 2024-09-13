@@ -7,7 +7,7 @@ use Firebase\JWT\Key;
 use Dotenv\Dotenv;
 
 try {
-    $headers = apache_request_headers();
+    $headers = getallheaders();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
 
     // Sanitize and validate the id_curso input
@@ -57,10 +57,10 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT coordinaciones_cursos.* FROM coordinaciones_cursos
-            INNER JOIN roles_cursos ON roles_cursos.id_curso = coordinaciones_cursos.id_curso
+    $sql = "SELECT opciones_terminales_cursos.* FROM opciones_terminales_cursos
+            INNER JOIN roles_cursos ON roles_cursos.id_curso = opciones_terminales_cursos.id_curso
             INNER JOIN maestros ON maestros.id = roles_cursos.id_maestro
-            WHERE maestros.id = ? AND coordinaciones_cursos.id_curso = ?";
+            WHERE maestros.id = ? AND opciones_terminales_cursos.id_curso = ?";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
@@ -69,15 +69,19 @@ try {
 
     // Bind parameters with validated and sanitized inputs
     $stmt->bind_param('ii', $decoded_jwt->sub, $id_curso);
-    $stmt->execute();
+
+    if (!$stmt->execute()) {
+        throw new Exception('Execution failed: ' . $stmt->error);
+    }
+
     $result = $stmt->get_result();
     if ($result === false) {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-    $coordinaciones = [];
-    while ( $row = $result->fetch_assoc() ){
-        $coordinaciones[] = $row;
+    $opciones_terminales = [];
+    while ($row = $result->fetch_assoc()) {
+        $opciones_terminales[] = $row;
     }
 
     $stmt->close();
@@ -85,16 +89,16 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'Coordinaciones obtenidos',
-        'coordinaciones' => $coordinaciones,
+        'message' => 'Opciones Terminales obtenidas'.$id_curso.$decoded_jwt->sub,
+        'opciones_terminales' => $opciones_terminales,
     ]);
 
 } catch (Exception $e) {
-    //http_response_code(500);
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'coordinaciones' => [],
+        'opciones_terminales' => null,
     ]);
     error_log($e->getMessage());
 }

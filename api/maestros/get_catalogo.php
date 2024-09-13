@@ -56,7 +56,6 @@ try {
 
     $stmt->close();
     $connection->close();
-    //sleep(2);
 
 
     echo json_encode([

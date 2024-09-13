@@ -1,0 +1,143 @@
+<?php
+// Set CORS headers to allow requests from your Next.js app (adjust as needed)
+header('Access-Control-Allow-Origin: *'); // Use the correct origin for your Next.js app
+header('Access-Control-Allow-Methods: GET, HEAD, OPTIONS');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+
+require '../../../vendor/autoload.php'; // Adjust the path if needed
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+use Dotenv\Dotenv;
+
+// Enable error reporting for debugging purposes
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Log all errors to the PHP error log
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/error_log.txt'); // Optional: Specify a custom log file
+
+try {
+    // Retrieve Authorization header
+    $headers = apache_request_headers();
+    $authHeader = $headers['Authorization'] ?? null;
+
+    // Log incoming request headers
+    error_log("Received headers: " . json_encode($headers));
+
+    // Check if the Authorization header is present and valid
+    if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
+        error_log("Authentication token is missing or invalid format.");
+        http_response_code(401);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Authentication token is missing']);
+        exit;
+    }
+
+    // Extract the JWT from the Authorization header
+    $jwt = str_replace('Bearer ', '', $authHeader);
+
+    // Load environment variables
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../../');
+    $dotenv->load();
+    $secretKey = $_ENV['JWT_SECRET'];
+
+    // Attempt to decode the JWT and handle potential errors
+    try {
+        $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
+        error_log("JWT decoded successfully.");
+    } catch (Exception $e) {
+        // Handle JWT decode errors (invalid token)
+        error_log("JWT decode error: " . $e->getMessage());
+        http_response_code(401);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Invalid authentication token']);
+        exit;
+    }
+
+    // Retrieve the id_tesis from query parameters and validate it
+    // Log incoming id_tesis value
+    // $id_tesis = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+    // error_log("Received id_tesis: " . $id_tesis);
+    // if ($id_tesis === false) {
+    //     error_log("Invalid id_tesis received.");
+    //     http_response_code(400);
+    //     header('Content-Type: application/json');
+    //     echo json_encode(['error' => 'Invalid get parameters']);
+    //     exit;
+    // }
+
+    // Database connection details
+    $SERVER_NAME = $_ENV['MY_SERVERNAME'];
+    $USERNAME = $_ENV['MY_USERNAME'];
+    $PASSWORD = $_ENV['MY_PASSWORD'];
+    $DATABASE_NAME = $_ENV['MY_DB_TESIS_REPO'];
+
+    // Create a connection to the database
+    $conn = new mysqli($SERVER_NAME, $USERNAME, $PASSWORD, $DATABASE_NAME);
+
+    // Check for connection errors
+    if ($conn->connect_error) {
+        error_log("Database connection failed: " . $conn->connect_error);
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Database connection failed']);
+        exit;
+    }
+
+    $id_tesis = 1; // Hardcoded for testing purposes
+
+    // Prepare and execute the SQL query to fetch the PDF data
+    $stmt = $conn->prepare("SELECT pdf_blob FROM tesis WHERE id = ?");
+    if (!$stmt) {
+        error_log("SQL prepare statement failed: " . $conn->error);
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Failed to prepare SQL statement']);
+        exit;
+    }
+
+    $stmt->bind_param("i", $id_tesis);
+    if (!$stmt->execute()) {
+        error_log("SQL execute failed: " . $stmt->error);
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Failed to execute SQL statement']);
+        exit;
+    }
+
+    $stmt->bind_result($pdfData);
+    $stmt->fetch();
+
+    // Check if the PDF data was found
+    if (!$pdfData) {
+        error_log("PDF not found for id_tesis: " . $id_tesis);
+        http_response_code(404);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'PDF not found']);
+        exit;
+    }
+
+    // Set headers for the file download
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="tesis_' . $id_tesis . '.pdf"');
+
+    // Output the PDF data
+    echo $pdfData;
+
+    // Log successful download
+    error_log("PDF downloaded successfully for id_tesis: " . $id_tesis);
+
+    // Close the statement and connection
+    $stmt->close();
+    $conn->close();
+
+} catch (Exception $e) {
+    // Handle exceptions and log the error
+    error_log("Caught exception: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => $e->getMessage()]);
+    exit;
+}
+?>
