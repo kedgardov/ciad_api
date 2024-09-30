@@ -10,19 +10,6 @@ try {
     $headers = apache_request_headers();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
 
-    // Sanitize and validate the id_curso input
-    $id_curso = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, [
-        'options' => [
-            'default' => 0, // Default value if the input is not valid
-            'min_range' => 1 // Ensuring only positive integers
-        ]
-    ]);
-
-    if ($id_curso === 0) {
-        throw new Exception('Curso invalido');
-    }
-
-    // Check if Authorization header is present and valid
     if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
         throw new Exception('Authentication token is missing or invalid');
     }
@@ -30,21 +17,12 @@ try {
     // Extract the JWT from the Authorization header
     $jwt = str_replace('Bearer ', '', $authHeader);
 
-    // Validate JWT format (simple check for presence of three segments)
-    if (count(explode('.', $jwt)) !== 3) {
-        throw new Exception('Invalid JWT format');
-    }
-
     $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
 
     // Decode the JWT
-    try {
-        $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
-    } catch (Exception $e) {
-        throw new Exception('Failed to decode JWT: ' . $e->getMessage());
-    }
+    $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
@@ -57,25 +35,37 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT lgacs_cursos.* FROM lgacs_cursos
-            WHERE lgacs_cursos.id_curso = ?";
+    $sql = "SELECT
+                ROW_NUMBER() OVER(ORDER BY roles_cursos.id_maestro) AS id,
+                roles_cursos.id_maestro,
+                roles_cursos.id_rol,
+                roles_cursos.id_curso,
+                opciones_terminales_cursos.id_opcion_terminal,
+                opciones_terminales_cursos.id_programa,
+                opciones_terminales_cursos.id_nivel_curricular
+            FROM
+                roles_cursos
+            INNER JOIN
+                opciones_terminales_cursos
+            ON
+                roles_cursos.id_curso = opciones_terminales_cursos.id_curso
+     ";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    // Bind parameters with validated and sanitized inputs
-    $stmt->bind_param('i', $id_curso);
     $stmt->execute();
     $result = $stmt->get_result();
+
     if ($result === false) {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-    $lgacs = [];
-    while ( $row = $result->fetch_assoc() ){
-        $lgacs[] = $row;
+    $participaciones_cursos = [];
+    while ($row = $result->fetch_assoc()) {
+        $participaciones_cursos[] = $row;
     }
 
     $stmt->close();
@@ -83,8 +73,8 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'LGACs obtenidos',
-        'lgacs' => $lgacs,
+        'message' => 'Participaciones Cursos obtenidas',
+        'participaciones_cursos' => $participaciones_cursos,
     ]);
 
 } catch (Exception $e) {
@@ -92,7 +82,7 @@ try {
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'lgacs' => null,
+        'participaciones_cursos' => [],
     ]);
     error_log($e->getMessage());
 }

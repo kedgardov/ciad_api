@@ -57,11 +57,10 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT cursos.id, cursos.clave, cursos.nombre, roles_cursos.id_rol FROM cursos
-            INNER JOIN roles_cursos ON roles_cursos.id_curso = cursos.id
-            INNER JOIN catalogo_roles ON catalogo_roles.id = roles_cursos.id_rol
-            INNER JOIN maestros ON maestros.id = roles_cursos.id_maestro
-            WHERE maestros.id = ? AND cursos.id = ?";
+    $sql = "SELECT
+                cursos.id, cursos.clave, cursos.nombre FROM cursos
+            WHERE
+                cursos.id = ?";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
@@ -69,7 +68,7 @@ try {
     }
 
     // Bind parameters with validated and sanitized inputs
-    $stmt->bind_param('ii', $decoded_jwt->sub, $id_curso);
+    $stmt->bind_param('i', $id_curso);
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result === false) {
@@ -85,6 +84,7 @@ try {
         exit();
     }
     $curso = $result->fetch_assoc();
+    $curso['id_rol'] = 0;
 
     $stmt->close();
     $connection->close();
@@ -95,7 +95,7 @@ try {
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
+    //http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),

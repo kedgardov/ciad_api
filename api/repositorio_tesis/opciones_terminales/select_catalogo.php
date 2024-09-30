@@ -1,6 +1,6 @@
 <?php
 
-require '../../vendor/autoload.php';
+require '../../../vendor/autoload.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
@@ -17,7 +17,7 @@ try {
     // Extract the JWT from the Authorization header
     $jwt = str_replace('Bearer ', '', $authHeader);
 
-    $dotenv = Dotenv::createImmutable(__DIR__.'/../../');
+    $dotenv = Dotenv::createImmutable(__DIR__.'/../../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
@@ -33,7 +33,7 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT id, id_autor, id_coordinacion, id_pronace, id_grado, titulo, fecha, checked FROM tesis";
+    $sql = "SELECT * FROM catalogo_opciones_terminales";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
@@ -48,9 +48,9 @@ try {
     }
 
 
-    $tesis_mini = [];
+    $catalogo_opciones_terminales = [];
     while( $row = $result->fetch_assoc() ){
-        $tesis_mini[] = $row;
+        $catalogo_opciones_terminales[] = $row;
     }
 
     $stmt->close();
@@ -58,17 +58,17 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'Tesis mini obtenidas',
-        'tesis_mini' => $tesis_mini,
+        'message' => 'Catalogo obtenido',
+        'catalogo_opciones_terminales' => $catalogo_opciones_terminales,
     ]);
 
 } catch (Exception $e) {
-    //http_response_code(500);
+    http_response_code(500);
 
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'tesis_mini' => [],
+        'catalogo_opciones_terminales' => [],
     ]);
     error_log($e->getMessage());
 }

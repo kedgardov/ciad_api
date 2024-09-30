@@ -45,6 +45,7 @@ try {
     id_pronace,
     id_grado,
     id_file,
+    id_opcion_terminal,
     titulo,
     fecha,
     palabras_clave,

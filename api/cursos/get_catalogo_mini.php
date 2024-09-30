@@ -9,11 +9,6 @@ use Dotenv\Dotenv;
 try {
     $headers = apache_request_headers();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
-    $id_curso = isset($_GET['id']) ? $_GET['id'] : 0;
-
-    if($id_curso === 0) {
-        throw new Exception('Curso invalido');
-    }
 
     if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
         throw new Exception('Authentication token is missing');
@@ -27,65 +22,49 @@ try {
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
+
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
     $PASSWORD = $_ENV['MY_PASSWORD'];
     $DATABASE_NAME = $_ENV['MY_DB_NAME'];
+
 
     $connection = new mysqli($SERVER_NAME, $USERNAME, $PASSWORD, $DATABASE_NAME);
 
     if ($connection->connect_error) {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
-    $sql = "SELECT
-                cursos.*, roles_cursos.id_rol FROM cursos
-            INNER JOIN
-                roles_cursos
-            ON
-                roles_cursos.id_curso = cursos.id
-            WHERE
-                cursos.id = ?
-           ";
 
-    
+    $sql = "SELECT cursos.id, cursos.clave, cursos.nombre FROM cursos";
+
     $stmt = $connection->prepare($sql);
-    if ($stmt === false) {
-        throw new Exception('Prepare statement failed: ' . $connection->error);
+     if ($stmt === false) {
+         throw new Exception('Prepare statement failed: ' . $connection->error);
+     }
+
+     $stmt->execute();
+     $result = $stmt->get_result();
+     $cursos = [];
+     while ($row = $result->fetch_assoc()) {
+         $row['id_rol'] = 0;
+         $cursos[] = $row;
     }
-
-    $stmt->bind_param('i', $id_curso);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result === false) {
-        throw new Exception('Get result failed: ' . $stmt->error);
-    }
-
-
-    if ($result->num_rows === 0) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'No se encontro el curso',
-            'curso' => null,
-        ]);
-        exit();
-    }
-    $curso = $result->fetch_assoc();
-
 
     $stmt->close();
     $connection->close();
+
     echo json_encode([
         'success' => true,
-        'message' => 'Cursos obtenidos',
-        'curso' => $curso,
+        'message' => 'Catalogo Obtenido',
+        'catalogo_cursos_mini' => $cursos,
     ]);
 
 } catch (Exception $e) {
-    //http_response_code(500);
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'curso' => null,
+        'catalogo_cursos_mini' => [],
     ]);
     error_log($e->getMessage());
 }

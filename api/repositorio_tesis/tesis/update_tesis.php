@@ -48,13 +48,14 @@ try {
     $id_coordinacion = filter_var($tesisData['id_coordinacion'], FILTER_VALIDATE_INT);
     $id_pronace = filter_var($tesisData['id_pronace'], FILTER_VALIDATE_INT);
     $id_grado = filter_var($tesisData['id_grado'], FILTER_VALIDATE_INT);
+    $id_opcion_terminal = filter_var($tesisData['id_opcion_terminal'], FILTER_VALIDATE_INT);
     $titulo = filter_var($tesisData['titulo'], FILTER_SANITIZE_STRING);
     $fecha = filter_var($tesisData['fecha'], FILTER_SANITIZE_STRING);
     $palabras_clave = filter_var($tesisData['palabras_clave'], FILTER_SANITIZE_STRING);
     $resumen = filter_var($tesisData['resumen'], FILTER_SANITIZE_STRING);
 
     // Check for any validation issues
-    if (!$id_autor || !$id_coordinacion || !$id_pronace || !$id_grado || !$titulo || !$fecha || !$palabras_clave || !$resumen) {
+    if (!$id_autor || !$id_coordinacion || !$id_pronace || !$id_grado || !$id_opcion_terminal || !$titulo || !$fecha || !$palabras_clave || !$resumen) {
         throw new Exception('Invalid tesis data provided', 400);
     }
 
@@ -70,17 +71,18 @@ try {
     }
 
     // Prepare the SQL UPDATE statement
-    $sql = "UPDATE tesis SET id_autor = ?, id_coordinacion = ?, id_pronace = ?, id_grado = ?, titulo = ?, fecha = ?, palabras_clave = ?, resumen = ?, checked = 1 WHERE id = ?";
+    $sql = "UPDATE tesis SET id_autor = ?, id_coordinacion = ?, id_pronace = ?, id_grado = ?, id_opcion_terminal = ?, titulo = ?, fecha = ?, palabras_clave = ?, resumen = ?, checked = 1 WHERE id = ?";
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('iiiissssi',
+    $stmt->bind_param('iiiiissssi',
                       $id_autor,
                       $id_coordinacion,
                       $id_pronace,
                       $id_grado,
+                      $id_opcion_terminal,
                       $titulo,
                       $fecha,
                       $palabras_clave,

@@ -58,9 +58,7 @@ try {
     }
 
     $sql = "SELECT coordinaciones_cursos.* FROM coordinaciones_cursos
-            INNER JOIN roles_cursos ON roles_cursos.id_curso = coordinaciones_cursos.id_curso
-            INNER JOIN maestros ON maestros.id = roles_cursos.id_maestro
-            WHERE maestros.id = ? AND coordinaciones_cursos.id_curso = ?";
+            WHERE coordinaciones_cursos.id_curso = ?";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
@@ -68,7 +66,7 @@ try {
     }
 
     // Bind parameters with validated and sanitized inputs
-    $stmt->bind_param('ii', $decoded_jwt->sub, $id_curso);
+    $stmt->bind_param('i', $id_curso);
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result === false) {

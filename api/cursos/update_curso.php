@@ -91,7 +91,10 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "UPDATE cursos SET
+
+    switch($decoded_jwt->rol){
+    case 'docente':
+        $sql = "UPDATE cursos SET
             nombre_ingles = ?,
             horas_teoricas_semana = ?,
             horas_practicas_semana = ?,
@@ -104,6 +107,30 @@ try {
             id_modalidad = ?,
             id_tipo = ?
             WHERE id = ?";
+        break;
+    case 'admin':
+        echo json_encode([
+            'success' => false,
+            'message' => 'Falta de permisos',
+        ]);
+        exit();
+        break;
+    case 'god':
+        $sql = "UPDATE cursos SET
+            nombre_ingles = ?,
+            horas_teoricas_semana = ?,
+            horas_practicas_semana = ?,
+            horas_semana = ?,
+            horas_teoricas_semestre = ?,
+            horas_practicas_semestre = ?,
+            horas_semestre = ?,
+            creditos = ?,
+            vinculo_objetivos_posgrado = ?,
+            id_modalidad = ?,
+            id_tipo = ?
+            WHERE id = ?";
+        break;
+    }
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {

@@ -45,10 +45,24 @@ try {
     }
 
     // SQL query to retrieve tesis related to the specified maestro
-    $sql = "SELECT tesis.id, tesis.id_autor, tesis.id_coordinacion, tesis.id_pronace, tesis.id_grado, tesis.titulo, tesis.fecha, tesis.checked, comites_directivos.id_rol_tesis, comites_directivos.id AS id_directivo
-        FROM tesis
-        INNER JOIN comites_directivos ON comites_directivos.id_tesis = tesis.id
-        WHERE comites_directivos.id_maestro = ?";
+    $sql = "
+        SELECT
+            tesis.id,
+            tesis.id_autor,
+            tesis.id_coordinacion,
+            tesis.id_pronace,
+            tesis.id_opcion_terminal,
+            tesis.id_grado,
+            tesis.titulo,
+            tesis.fecha,
+            tesis.checked,
+            comites_directivos.id_rol_tesis
+        FROM
+            tesis
+        INNER JOIN
+            comites_directivos ON comites_directivos.id_tesis = tesis.id
+        WHERE
+            comites_directivos.id_maestro = ?";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
