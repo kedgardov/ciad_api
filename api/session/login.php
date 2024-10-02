@@ -86,6 +86,7 @@ try {
         'sub' => $id,
         'exp' => time() + 24 * 3600, // 24 hours expiration
         'rol' => $rol,
+        'label' => $label,
     ];
 
     // Encode the JWT

@@ -11,14 +11,16 @@ class Curso {
     public $clave;
     public $nombre;
     public $nombre_ingles;
+    public $horas_semana;
+    public $horas_semestre;
+    public $vinculo_objetivos_posgrado;
+    public $creditos;
     public $horas_teoricas_semana;
     public $horas_practicas_semana;
-    public $horas_semana;
     public $horas_teoricas_semestre;
     public $horas_practicas_semestre;
-    public $horas_semestre;
-    public $creditos;
-    public $vinculo_objetivos_posgrado;
+    public $conocimientos;
+    public $actitudes;
     public $id_modalidad;
     public $id_tipo;
 
@@ -31,31 +33,34 @@ class Curso {
         $this->clave = filter_var($input['clave'], FILTER_SANITIZE_STRING);
         $this->nombre = filter_var($input['nombre'], FILTER_SANITIZE_STRING);
         $this->nombre_ingles = isset($input['nombre_ingles']) ? filter_var($input['nombre_ingles'], FILTER_SANITIZE_STRING) : null;
+        $this->horas_semana = isset($input['horas_semana']) ? filter_var($input['horas_semana'], FILTER_VALIDATE_INT) : null;
+        $this->horas_semestre = isset($input['horas_semestre']) ? filter_var($input['horas_semestre'], FILTER_VALIDATE_INT) : null;
+        $this->vinculo_objetivos_posgrado = isset($input['vinculo_objetivos_posgrado']) ? filter_var($input['vinculo_objetivos_posgrado'], FILTER_SANITIZE_STRING) : null;
+        $this->creditos = isset($input['creditos']) ? filter_var($input['creditos'], FILTER_VALIDATE_INT) : null;
         $this->horas_teoricas_semana = isset($input['horas_teoricas_semana']) ? filter_var($input['horas_teoricas_semana'], FILTER_VALIDATE_INT) : null;
         $this->horas_practicas_semana = isset($input['horas_practicas_semana']) ? filter_var($input['horas_practicas_semana'], FILTER_VALIDATE_INT) : null;
-        $this->horas_semana = isset($input['horas_semana']) ? filter_var($input['horas_semana'], FILTER_VALIDATE_INT) : null;
         $this->horas_teoricas_semestre = isset($input['horas_teoricas_semestre']) ? filter_var($input['horas_teoricas_semestre'], FILTER_VALIDATE_INT) : null;
         $this->horas_practicas_semestre = isset($input['horas_practicas_semestre']) ? filter_var($input['horas_practicas_semestre'], FILTER_VALIDATE_INT) : null;
-        $this->horas_semestre = isset($input['horas_semestre']) ? filter_var($input['horas_semestre'], FILTER_VALIDATE_INT) : null;
-        $this->creditos = isset($input['creditos']) ? filter_var($input['creditos'], FILTER_VALIDATE_INT) : null;
-        $this->vinculo_objetivos_posgrado = isset($input['vinculo_objetivos_posgrado']) ? filter_var($input['vinculo_objetivos_posgrado'], FILTER_SANITIZE_STRING) : null;
+        $this->conocimientos = isset($input['conocimientos']) ? filter_var($input['conocimientos'], FILTER_SANITIZE_STRING) : null;
+        $this->actitudes = isset($input['actitudes']) ? filter_var($input['actitudes'], FILTER_SANITIZE_STRING) : null;
         $this->id_modalidad = isset($input['id_modalidad']) ? filter_var($input['id_modalidad'], FILTER_VALIDATE_INT) : null;
         $this->id_tipo = isset($input['id_tipo']) ? filter_var($input['id_tipo'], FILTER_VALIDATE_INT) : null;
     }
 
-    // Getter methods...
     public function getId() { return $this->id; }
     public function getClave() { return $this->clave; }
     public function getNombre() { return $this->nombre; }
     public function getNombreIngles() { return $this->nombre_ingles; }
+    public function getHorasSemana() { return $this->horas_semana; }
+    public function getHorasSemestre() { return $this->horas_semestre; }
+    public function getVinculoObjetivosPosgrado() { return $this->vinculo_objetivos_posgrado; }
+    public function getCreditos() { return $this->creditos; }
     public function getHorasTeoricasSemana() { return $this->horas_teoricas_semana; }
     public function getHorasPracticasSemana() { return $this->horas_practicas_semana; }
-    public function getHorasSemana() { return $this->horas_semana; }
     public function getHorasTeoricasSemestre() { return $this->horas_teoricas_semestre; }
     public function getHorasPracticasSemestre() { return $this->horas_practicas_semestre; }
-    public function getHorasSemestre() { return $this->horas_semestre; }
-    public function getCreditos() { return $this->creditos; }
-    public function getVinculoObjetivosPosgrado() { return $this->vinculo_objetivos_posgrado; }
+    public function getConocimientos() { return $this->conocimientos; }
+    public function getActitudes() { return $this->actitudes; }
     public function getIdModalidad() { return $this->id_modalidad; }
     public function getIdTipo() { return $this->id_tipo; }
 }
@@ -91,46 +96,29 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-
-    switch($decoded_jwt->rol){
-    case 'docente':
-        $sql = "UPDATE cursos SET
-            nombre_ingles = ?,
-            horas_teoricas_semana = ?,
-            horas_practicas_semana = ?,
-            horas_semana = ?,
-            horas_teoricas_semestre = ?,
-            horas_practicas_semestre = ?,
-            horas_semestre = ?,
-            creditos = ?,
-            vinculo_objetivos_posgrado = ?,
-            id_modalidad = ?,
-            id_tipo = ?
-            WHERE id = ?";
-        break;
-    case 'admin':
+    if ($decoded_jwt->rol !== 'docente' && $decoded_jwt->rol !== 'god') {
         echo json_encode([
             'success' => false,
             'message' => 'Falta de permisos',
         ]);
         exit();
-        break;
-    case 'god':
-        $sql = "UPDATE cursos SET
-            nombre_ingles = ?,
-            horas_teoricas_semana = ?,
-            horas_practicas_semana = ?,
-            horas_semana = ?,
-            horas_teoricas_semestre = ?,
-            horas_practicas_semestre = ?,
-            horas_semestre = ?,
-            creditos = ?,
-            vinculo_objetivos_posgrado = ?,
-            id_modalidad = ?,
-            id_tipo = ?
-            WHERE id = ?";
-        break;
     }
+
+    $sql = "UPDATE cursos SET
+        nombre_ingles = ?,
+        horas_semana = ?,
+        horas_semestre = ?,
+        vinculo_objetivos_posgrado = ?,
+        creditos = ?,
+        horas_teoricas_semana = ?,
+        horas_practicas_semana = ?,
+        horas_teoricas_semestre = ?,
+        horas_practicas_semestre = ?,
+        conocimientos = ?,
+        actitudes = ?,
+        id_modalidad = ?,
+        id_tipo = ?
+        WHERE id = ?";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
@@ -138,16 +126,18 @@ try {
     }
 
     $stmt->bind_param(
-        'siiiiiiiiiii',
+        'siiisiiisssiii',
         $curso->getNombreIngles(),
+        $curso->getHorasSemana(),
+        $curso->getHorasSemestre(),
+        $curso->getVinculoObjetivosPosgrado(),
+        $curso->getCreditos(),
         $curso->getHorasTeoricasSemana(),
         $curso->getHorasPracticasSemana(),
-        $curso->getHorasSemana(),
         $curso->getHorasTeoricasSemestre(),
         $curso->getHorasPracticasSemestre(),
-        $curso->getHorasSemestre(),
-        $curso->getCreditos(),
-        $curso->getVinculoObjetivosPosgrado(),
+        $curso->getConocimientos(),
+        $curso->getActitudes(),
         $curso->getIdModalidad(),
         $curso->getIdTipo(),
         $curso->getId()
@@ -164,12 +154,9 @@ try {
     ]);
 
 } catch (Exception $e) {
-    //http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
     ]);
     error_log($e->getMessage());
 }
-
-?>
