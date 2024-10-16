@@ -1,12 +1,13 @@
 <?php
 
-require '../../../vendor/autoload.php';
+require '../../vendor/autoload.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Dotenv\Dotenv;
 
 try {
+    // Get the Authorization header
     $headers = apache_request_headers();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
 
@@ -14,54 +15,37 @@ try {
         throw new Exception('Authentication token is missing');
     }
 
-    $id_tesis = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-    if ($id_tesis === false) {
-        throw new Exception('Invalid get parameters', 400);
-    }
-
-    // Extract the JWT from the Authorization header
+    // Extract and decode JWT
     $jwt = str_replace('Bearer ', '', $authHeader);
-
-    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../../');
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
+    // Database connection variables
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
     $PASSWORD = $_ENV['MY_PASSWORD'];
-    $DATABASE_NAME = $_ENV['MY_DB_TESIS_REPO'];
+    $DATABASE_NAME = $_ENV['MY_DB_NAME'];
 
+    // Create database connection
     $connection = new mysqli($SERVER_NAME, $USERNAME, $PASSWORD, $DATABASE_NAME);
 
+    // Check for connection error
     if ($connection->connect_error) {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = " SELECT
-    id,
-    id_autor,
-    id_coordinacion,
-    id_coordinacion_2,
-    id_pronace,
-    id_grado,
-    id_file,
-    id_opcion_terminal,
-    titulo,
-    fecha,
-    palabras_clave,
-    resumen,
-    checked,
-    resumen_filtered,
-    id_prediccion,
-    id_prediccion_2
-    FROM tesis WHERE id = ?";
+    // SQL query to select all from catalogo_actividades
+    $sql = "SELECT * FROM catalogo_actividades";
+
+    // Prepare the SQL statement
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('i', $id_tesis);
+    // Execute the statement
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -69,36 +53,31 @@ try {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-    if ($result->num_rows === 0) {
-        http_response_code(404);
-        echo json_encode([
-            'success' => false,
-            'message' => 'No encontrada',
-            'tesis' => null,
-        ]);
-        return; // Exit to prevent further execution
+    // Fetch results
+    $catalogo_actividades = [];
+    while( $row = $result->fetch_assoc() ){
+        $catalogo_actividades[] = $row;
     }
 
-    $tesis = $result->fetch_assoc();
-    $tesis['checked'] = isset($tesis['checked'])? (bool)$tesis['checked'] : false;
-
+    // Close statement and connection
     $stmt->close();
     $connection->close();
 
+    // Return the result as JSON
     echo json_encode([
         'success' => true,
-        'message' => 'Tesis obtenida',
-        'tesis' => $tesis,
+        'message' => 'Catalogo de actividades obtenido con éxito',
+        'catalogo_actividades' => $catalogo_actividades,
     ]);
 
 } catch (Exception $e) {
-    http_response_code($e->getCode() > 0 ? $e->getCode() : 500);
+    // Handle errors
+    http_response_code(500);
 
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'tesis' => null,
+        'catalogo_actividades' => [],
     ]);
     error_log($e->getMessage());
 }
-?>

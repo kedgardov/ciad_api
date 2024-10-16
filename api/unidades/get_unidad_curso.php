@@ -1,12 +1,13 @@
 <?php
 
-require '../../../vendor/autoload.php';
+require '../../vendor/autoload.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Dotenv\Dotenv;
 
 try {
+    // Get the Authorization header
     $headers = apache_request_headers();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
 
@@ -14,54 +15,50 @@ try {
         throw new Exception('Authentication token is missing');
     }
 
-    $id_tesis = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-    if ($id_tesis === false) {
-        throw new Exception('Invalid get parameters', 400);
-    }
-
     // Extract the JWT from the Authorization header
     $jwt = str_replace('Bearer ', '', $authHeader);
 
-    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../../');
+    // Load environment variables
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
     $secretKey = $_ENV['JWT_SECRET'];
+
+    // Decode the JWT
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
+    // Check if idUnidad is provided in GET request and sanitize it
+    if (!isset($_GET['id']) || !filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
+        throw new Exception('Invalid or missing unidad ID');
+    }
+    $idUnidad = filter_var($_GET['id'], FILTER_SANITIZE_NUMBER_INT);
+
+    // Database connection variables
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
     $PASSWORD = $_ENV['MY_PASSWORD'];
-    $DATABASE_NAME = $_ENV['MY_DB_TESIS_REPO'];
+    $DATABASE_NAME = $_ENV['MY_DB_NAME'];
 
+    // Create database connection
     $connection = new mysqli($SERVER_NAME, $USERNAME, $PASSWORD, $DATABASE_NAME);
 
+    // Check for connection error
     if ($connection->connect_error) {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = " SELECT
-    id,
-    id_autor,
-    id_coordinacion,
-    id_coordinacion_2,
-    id_pronace,
-    id_grado,
-    id_file,
-    id_opcion_terminal,
-    titulo,
-    fecha,
-    palabras_clave,
-    resumen,
-    checked,
-    resumen_filtered,
-    id_prediccion,
-    id_prediccion_2
-    FROM tesis WHERE id = ?";
+    // SQL query to select a single unidad by idUnidad
+    $sql = "SELECT * FROM unidades WHERE id = ?";
+
+    // Prepare the SQL statement
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('i', $id_tesis);
+    // Bind the unidad ID to the query
+    $stmt->bind_param('i', $idUnidad);
+
+    // Execute the statement
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -69,36 +66,28 @@ try {
         throw new Exception('Get result failed: ' . $stmt->error);
     }
 
-    if ($result->num_rows === 0) {
-        http_response_code(404);
-        echo json_encode([
-            'success' => false,
-            'message' => 'No encontrada',
-            'tesis' => null,
-        ]);
-        return; // Exit to prevent further execution
-    }
+    // Fetch the single unidad row, or set as null if not found
+    $unidad = $result->fetch_assoc() ?: null;
 
-    $tesis = $result->fetch_assoc();
-    $tesis['checked'] = isset($tesis['checked'])? (bool)$tesis['checked'] : false;
-
+    // Close statement and connection
     $stmt->close();
     $connection->close();
 
+    // Return the result as JSON
     echo json_encode([
         'success' => true,
-        'message' => 'Tesis obtenida',
-        'tesis' => $tesis,
+        'message' => $unidad ? 'Unidad obtenida con éxito' : 'No se encontró la unidad',
+        'unidad' => $unidad,
     ]);
 
 } catch (Exception $e) {
-    http_response_code($e->getCode() > 0 ? $e->getCode() : 500);
+    // Handle errors
+    http_response_code(500);
 
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'tesis' => null,
+        'unidad' => null,
     ]);
     error_log($e->getMessage());
 }
-?>

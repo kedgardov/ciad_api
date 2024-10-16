@@ -126,7 +126,7 @@ try {
     }
 
     $stmt->bind_param(
-        'siiisiiisssiii',
+        'siisiiiiissiii',
         $curso->getNombreIngles(),
         $curso->getHorasSemana(),
         $curso->getHorasSemestre(),
@@ -150,7 +150,7 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'Curso actualizado',
+        'message' => 'Curso Actualizado',
     ]);
 
 } catch (Exception $e) {

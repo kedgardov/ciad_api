@@ -10,28 +10,9 @@ try {
     // Get Authorization header
     $headers = apache_request_headers();
     $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
+
     if (!$authHeader || strpos($authHeader, 'Bearer ') !== 0) {
         throw new Exception('Authentication token is missing');
-    }
-
-    // Read input
-    $input = json_decode(file_get_contents('php://input'), true);
-    if ($input === null) {
-        throw new Exception('Invalid JSON input');
-    }
-
-    // Validate and sanitize input data
-    $coordinacionCurso = isset($input['coordinacionCurso']) ? $input['coordinacionCurso'] : null;
-    if (!$coordinacionCurso) {
-        throw new Exception('Coordinacion Inválida');
-    }
-
-    // Use isset check and filter inputs, assign default 0 if not set
-    $id_curso = isset($coordinacionCurso['id_curso']) ? filter_var($coordinacionCurso['id_curso'], FILTER_VALIDATE_INT) : 0;
-    $id_coordinacion = isset($coordinacionCurso['id_coordinacion']) ? filter_var($coordinacionCurso['id_coordinacion'], FILTER_VALIDATE_INT) : 0;
-
-    if ($id_curso === 0 || $id_coordinacion === 0) {
-        throw new Exception('Invalid id_curso or id_coordinacion');
     }
 
     // Extract and decode JWT
@@ -41,7 +22,28 @@ try {
     $secretKey = $_ENV['JWT_SECRET'];
     $decoded_jwt = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
-    // Database connection
+    // Read input from POST body
+    $input = json_decode(file_get_contents('php://input'), true);
+    if ($input === null) {
+        throw new Exception('Invalid JSON input');
+    }
+
+    // Validate and sanitize input
+    $objetivoData = isset($input['objetivo']) ? $input['objetivo'] : null;
+    if (!$objetivoData) {
+        throw new Exception('Objetivo data is missing');
+    }
+
+    // Use isset check and filter inputs, assign default 0 if not set
+    $id_curso = isset($objetivoData['id_curso']) ? filter_var($objetivoData['id_curso'], FILTER_VALIDATE_INT) : 0;
+    $tipo = isset($objetivoData['tipo']) ? filter_var($objetivoData['tipo'], FILTER_SANITIZE_STRING) : '';
+    $objetivo = isset($objetivoData['objetivo']) ? filter_var($objetivoData['objetivo'], FILTER_SANITIZE_STRING) : null;
+
+    if ($id_curso === 0 || $tipo === '') {
+        throw new Exception('Invalid id_curso or tipo');
+    }
+
+    // Database connection variables
     $SERVER_NAME = $_ENV['MY_SERVERNAME'];
     $USERNAME = $_ENV['MY_USERNAME'];
     $PASSWORD = $_ENV['MY_PASSWORD'];
@@ -57,8 +59,8 @@ try {
         case 'docente':
             // Insert only if the docente is linked to the course via roles_cursos
             $sql = "
-                INSERT INTO coordinaciones_cursos (id_curso, id_coordinacion)
-                SELECT ?, ?
+                INSERT INTO objetivos_cursos (id_curso, tipo, objetivo)
+                SELECT ?, ?, ?
                 WHERE EXISTS (
                     SELECT id FROM roles_cursos WHERE id_curso = ? AND id_maestro = ?
                 )
@@ -68,34 +70,33 @@ try {
                 throw new Exception('Prepare statement failed: ' . $connection->error);
             }
 
-            // Bind the parameters (id_curso, id_coordinacion, id_curso, id_maestro)
-            $stmt->bind_param('iiii', $id_curso, $id_coordinacion, $id_curso, $decoded_jwt->sub);
+            // Bind the parameters (id_curso, tipo, objetivo, id_curso, id_maestro)
+            $stmt->bind_param('issii', $id_curso, $tipo, $objetivo, $id_curso, $decoded_jwt->sub);
             break;
 
         case 'god':
             // Insert unconditionally for god
             $sql = "
-                INSERT INTO coordinaciones_cursos (id_curso, id_coordinacion)
-                VALUES (?, ?)
+                INSERT INTO objetivos_cursos (id_curso, tipo, objetivo)
+                VALUES (?, ?, ?)
             ";
             $stmt = $connection->prepare($sql);
             if ($stmt === false) {
                 throw new Exception('Prepare statement failed: ' . $connection->error);
             }
 
-            // Bind the parameters for god (id_curso, id_coordinacion)
-            $stmt->bind_param('ii', $id_curso, $id_coordinacion);
+            // Bind the parameters for god (id_curso, tipo, objetivo)
+            $stmt->bind_param('iss', $id_curso, $tipo, $objetivo);
             break;
 
-        case 'admin':
         default:
             echo json_encode([
                 'success' => false,
                 'message' => 'Falta de permisos',
+                'id' => 0,
             ]);
             http_response_code(403);
             exit();
-            break;
     }
 
     // Execute the statement and check for errors
@@ -108,14 +109,14 @@ try {
         echo json_encode([
             'success' => false,
             'message' => 'Permiso denegado o no se pudo insertar.',
-            'id' => 0
+            'id' => 0,
         ]);
         http_response_code(403); // 403 Forbidden when no insert due to permission
     } else {
         $id = $connection->insert_id;
         echo json_encode([
             'success' => true,
-            'message' => 'Coordinacion del Curso Insertada',
+            'message' => 'Objetivo Insertado',
             'id' => $id,
         ]);
     }
@@ -138,4 +139,3 @@ try {
         $connection->close();
     }
 }
-?>

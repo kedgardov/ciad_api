@@ -46,6 +46,7 @@ try {
     // Extract individual fields from tesisData
     $id_autor = filter_var($tesisData['id_autor'], FILTER_VALIDATE_INT);
     $id_coordinacion = filter_var($tesisData['id_coordinacion'], FILTER_VALIDATE_INT);
+    $id_coordinacion_2 = filter_var($tesisData['id_coordinacion_2'], FILTER_VALIDATE_INT);
     $id_pronace = filter_var($tesisData['id_pronace'], FILTER_VALIDATE_INT);
     $id_grado = filter_var($tesisData['id_grado'], FILTER_VALIDATE_INT);
     $id_opcion_terminal = filter_var($tesisData['id_opcion_terminal'], FILTER_VALIDATE_INT);
@@ -55,7 +56,7 @@ try {
     $resumen = filter_var($tesisData['resumen'], FILTER_SANITIZE_STRING);
 
     // Check for any validation issues
-    if (!$id_autor || !$id_coordinacion || !$id_pronace || !$id_grado || !$id_opcion_terminal || !$titulo || !$fecha || !$palabras_clave || !$resumen) {
+    if (!$id_autor || !$id_coordinacion || !$id_coordinacion_2 || !$id_pronace || !$id_grado || !$id_opcion_terminal || !$titulo || !$fecha || !$palabras_clave || !$resumen ) {
         throw new Exception('Invalid tesis data provided', 400);
     }
 
@@ -71,15 +72,16 @@ try {
     }
 
     // Prepare the SQL UPDATE statement
-    $sql = "UPDATE tesis SET id_autor = ?, id_coordinacion = ?, id_pronace = ?, id_grado = ?, id_opcion_terminal = ?, titulo = ?, fecha = ?, palabras_clave = ?, resumen = ?, checked = 1 WHERE id = ?";
+    $sql = "UPDATE tesis SET id_autor = ?, id_coordinacion = ?, id_coordinacion_2 = ?, id_pronace = ?, id_grado = ?, id_opcion_terminal = ?, titulo = ?, fecha = ?, palabras_clave = ?, resumen = ?, checked = 1 WHERE id = ?";
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {
         throw new Exception('Prepare statement failed: ' . $connection->error);
     }
 
-    $stmt->bind_param('iiiiissssi',
+    $stmt->bind_param('iiiiiissssi',
                       $id_autor,
                       $id_coordinacion,
+                      $id_coordinacion_2,
                       $id_pronace,
                       $id_grado,
                       $id_opcion_terminal,

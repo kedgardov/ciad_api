@@ -21,17 +21,18 @@ try {
     }
 
     // Validate and sanitize input data
-    $coordinacionCurso = isset($input['coordinacionCurso']) ? $input['coordinacionCurso'] : null;
-    if (!$coordinacionCurso) {
-        throw new Exception('Coordinacion Inválida');
+    $objetivo = isset($input['objetivo']) ? $input['objetivo'] : null;
+    if (!$objetivo) {
+        throw new Exception('Datos del objetivo inválidos');
     }
 
     // Use isset check and filter inputs, assign default 0 if not set
-    $id_curso = isset($coordinacionCurso['id_curso']) ? filter_var($coordinacionCurso['id_curso'], FILTER_VALIDATE_INT) : 0;
-    $id_coordinacion = isset($coordinacionCurso['id_coordinacion']) ? filter_var($coordinacionCurso['id_coordinacion'], FILTER_VALIDATE_INT) : 0;
+    $id_objetivo = isset($objetivo['id']) ? filter_var($objetivo['id'], FILTER_VALIDATE_INT) : 0;
+    $id_curso = isset($objetivo['id_curso']) ? filter_var($objetivo['id_curso'], FILTER_VALIDATE_INT) : 0;
+    $nuevo_objetivo = isset($objetivo['objetivo']) ? filter_var($objetivo['objetivo'], FILTER_SANITIZE_STRING) : null;
 
-    if ($id_curso === 0 || $id_coordinacion === 0) {
-        throw new Exception('Invalid id_curso or id_coordinacion');
+    if ($id_objetivo === 0 || $id_curso === 0) {
+        throw new Exception('Invalid id or id_curso');
     }
 
     // Extract and decode JWT
@@ -55,36 +56,37 @@ try {
     // Define the SQL query based on user role
     switch ($decoded_jwt->rol) {
         case 'docente':
-            // Insert only if the docente is linked to the course via roles_cursos
+            // Update only if the docente is linked to the course via roles_cursos
             $sql = "
-                INSERT INTO coordinaciones_cursos (id_curso, id_coordinacion)
-                SELECT ?, ?
-                WHERE EXISTS (
-                    SELECT id FROM roles_cursos WHERE id_curso = ? AND id_maestro = ?
-                )
+                UPDATE objetivos_cursos
+                INNER JOIN roles_cursos AS rc
+                ON rc.id_curso = objetivos_cursos.id_curso
+                SET objetivos_cursos.objetivo = ?
+                WHERE objetivos_cursos.id = ? AND rc.id_maestro = ? AND objetivos_cursos.id_curso = ?
             ";
             $stmt = $connection->prepare($sql);
             if ($stmt === false) {
                 throw new Exception('Prepare statement failed: ' . $connection->error);
             }
 
-            // Bind the parameters (id_curso, id_coordinacion, id_curso, id_maestro)
-            $stmt->bind_param('iiii', $id_curso, $id_coordinacion, $id_curso, $decoded_jwt->sub);
+            // Bind the parameters (nuevo_objetivo, id_objetivo, decoded_jwt->sub, id_curso)
+            $stmt->bind_param('siii', $nuevo_objetivo, $id_objetivo, $decoded_jwt->sub, $id_curso);
             break;
 
         case 'god':
-            // Insert unconditionally for god
+            // Update unconditionally for 'god'
             $sql = "
-                INSERT INTO coordinaciones_cursos (id_curso, id_coordinacion)
-                VALUES (?, ?)
+                UPDATE objetivos_cursos
+                SET objetivo = ?
+                WHERE id = ?
             ";
             $stmt = $connection->prepare($sql);
             if ($stmt === false) {
                 throw new Exception('Prepare statement failed: ' . $connection->error);
             }
 
-            // Bind the parameters for god (id_curso, id_coordinacion)
-            $stmt->bind_param('ii', $id_curso, $id_coordinacion);
+            // Bind the parameters for god (nuevo_objetivo, id_objetivo)
+            $stmt->bind_param('si', $nuevo_objetivo, $id_objetivo);
             break;
 
         case 'admin':
@@ -103,20 +105,17 @@ try {
         throw new Exception('Execute failed: ' . $stmt->error);
     }
 
-    // Get the inserted ID or handle no rows affected
+    // Check if any rows were affected
     if ($stmt->affected_rows === 0) {
         echo json_encode([
             'success' => false,
-            'message' => 'Permiso denegado o no se pudo insertar.',
-            'id' => 0
+            'message' => 'No se pudo actualizar. Es posible que no tenga permisos o que no exista el registro.',
         ]);
-        http_response_code(403); // 403 Forbidden when no insert due to permission
+        http_response_code(403); // Return 403 Forbidden when update fails due to permission
     } else {
-        $id = $connection->insert_id;
         echo json_encode([
             'success' => true,
-            'message' => 'Coordinacion del Curso Insertada',
-            'id' => $id,
+            'message' => 'Objetivo actualizado exitosamente',
         ]);
     }
 
@@ -127,10 +126,8 @@ try {
     // Handle any exceptions and respond with error details
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage(),
-        'id' => 0
+        'message' => $jwt,
     ]);
-    error_log($e->getMessage());
 
 } finally {
     // Ensure the connection is closed, even in case of an error
@@ -138,4 +135,3 @@ try {
         $connection->close();
     }
 }
-?>

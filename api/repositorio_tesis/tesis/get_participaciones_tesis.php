@@ -34,7 +34,7 @@ try {
     }
 
     $sql = "SELECT
-                comites_directivos.id, tesis.id_coordinacion, tesis.id_pronace, tesis.id_opcion_terminal, tesis.id_grado, tesis.fecha, id_rol_tesis, id_maestro, id_tesis, id_autor
+                comites_directivos.id, tesis.id_coordinacion, tesis.id_coordinacion_2, tesis.id_pronace, tesis.id_opcion_terminal, tesis.id_grado, tesis.fecha, id_rol_tesis, id_maestro, id_tesis, id_autor
             FROM
                 comites_directivos
             INNER JOIN
