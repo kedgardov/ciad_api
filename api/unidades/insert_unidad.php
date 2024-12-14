@@ -109,6 +109,7 @@ try {
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
+        'id' => 0,
     ]);
     error_log($e->getMessage());
 

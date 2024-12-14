@@ -33,7 +33,7 @@ try {
         throw new Exception('Cannot connect to database: ' . $connection->connect_error);
     }
 
-    $sql = "SELECT id, titulo, resumen FROM tesis";
+    $sql = "SELECT id, titulo, resumen, id_coordinacion_2 FROM tesis";
 
     $stmt = $connection->prepare($sql);
     if ($stmt === false) {

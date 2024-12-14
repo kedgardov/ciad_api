@@ -50,6 +50,7 @@ try {
             tesis.id,
             tesis.id_autor,
             tesis.id_coordinacion,
+            tesis.id_coordinacion_2,
             tesis.id_pronace,
             tesis.id_opcion_terminal,
             tesis.id_grado,

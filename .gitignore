@@ -1,2 +1,5 @@
-/vendor
+vendor
 .env
+api/repositorio_tesis/tesis/lista_tesis/
+api/repositorio_tesis/tesis/venv/
+api/repositorio_tesis/tesis/python/__pycache__/
